@@ -1,6 +1,7 @@
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { Lesson } from '../data/lessons';
+import { toast } from "@/hooks/use-toast";
 
 interface LearningContextType {
   currentLesson: Lesson | null;
@@ -26,58 +27,95 @@ export const LearningProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isAnswerChecked, setIsAnswerChecked] = useState(false);
   const [isLessonComplete, setIsLessonComplete] = useState(false);
 
-  const selectAnswer = (answer: string) => {
-    if (!isAnswerChecked) {
-      setSelectedAnswer(answer);
-    }
-  };
+  // Debug logging for the current state
+  console.log("LearningContext state:", {
+    hasCurrentLesson: !!currentLesson,
+    currentQuestionIndex,
+    score,
+    selectedAnswer,
+    isAnswerChecked,
+    isLessonComplete
+  });
 
-  const checkAnswer = () => {
-    if (selectedAnswer) {
-      setIsAnswerChecked(true);
-      
-      if (currentLesson && selectedAnswer === currentLesson.exercises[currentQuestionIndex].answer) {
-        setScore((prev) => prev + 1);
-      }
-    }
-  };
+  const selectAnswer = useCallback((answer: string) => {
+    console.log("selectAnswer called with:", answer);
+    setSelectedAnswer(answer);
+  }, []);
 
-  const nextQuestion = () => {
-    if (currentLesson) {
-      if (currentQuestionIndex < currentLesson.exercises.length - 1) {
-        setCurrentQuestionIndex((prev) => prev + 1);
-        setSelectedAnswer(null);
-        setIsAnswerChecked(false);
-      } else {
-        setIsLessonComplete(true);
-      }
+  const checkAnswer = useCallback(() => {
+    console.log("checkAnswer called, current selectedAnswer:", selectedAnswer);
+    
+    if (selectedAnswer === null) {
+      console.warn("checkAnswer called with no selectedAnswer");
+      toast({
+        title: "No answer selected",
+        description: "Please select an answer before checking",
+        variant: "destructive"
+      });
+      return;
     }
-  };
+    
+    setIsAnswerChecked(true);
+    
+    if (currentLesson && selectedAnswer === currentLesson.exercises[currentQuestionIndex].answer) {
+      setScore((prev) => prev + 1);
+      console.log("Correct answer! New score:", score + 1);
+      toast({
+        title: "Correct!",
+        description: "Great job! That's the right answer.",
+        variant: "default"
+      });
+    } else {
+      console.log("Wrong answer. Current score:", score);
+      toast({
+        title: "Incorrect",
+        description: "That's not the right answer. Try again next time!",
+        variant: "destructive"
+      });
+    }
+  }, [currentLesson, currentQuestionIndex, selectedAnswer, score]);
 
-  const restartLesson = () => {
+  const nextQuestion = useCallback(() => {
+    if (!currentLesson) return;
+    
+    console.log("nextQuestion called, current index:", currentQuestionIndex, "total:", currentLesson.exercises.length);
+    
+    if (currentQuestionIndex < currentLesson.exercises.length - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
+      setSelectedAnswer(null);
+      setIsAnswerChecked(false);
+      console.log("Moving to next question:", currentQuestionIndex + 1);
+    } else {
+      setIsLessonComplete(true);
+      console.log("Lesson complete!");
+    }
+  }, [currentLesson, currentQuestionIndex]);
+
+  const restartLesson = useCallback(() => {
+    console.log("restartLesson called");
     setCurrentQuestionIndex(0);
     setScore(0);
     setSelectedAnswer(null);
     setIsAnswerChecked(false);
     setIsLessonComplete(false);
+  }, []);
+
+  const value = {
+    currentLesson,
+    currentQuestionIndex,
+    score,
+    selectedAnswer,
+    isAnswerChecked,
+    isLessonComplete,
+    setCurrentLesson,
+    selectAnswer,
+    checkAnswer,
+    nextQuestion,
+    restartLesson,
   };
 
   return (
-    <LearningContext.Provider
-      value={{
-        currentLesson,
-        currentQuestionIndex,
-        score,
-        selectedAnswer,
-        isAnswerChecked,
-        isLessonComplete,
-        setCurrentLesson,
-        selectAnswer,
-        checkAnswer,
-        nextQuestion,
-        restartLesson,
-      }}
-    >
+    <LearningContext.Provider value={value}>
       {children}
     </LearningContext.Provider>
   );

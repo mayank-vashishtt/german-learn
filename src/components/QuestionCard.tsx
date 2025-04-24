@@ -1,10 +1,10 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLearning } from '../context/LearningContext';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 
 const QuestionCard: React.FC = () => {
   const { 
@@ -16,6 +16,24 @@ const QuestionCard: React.FC = () => {
     checkAnswer,
     nextQuestion
   } = useLearning();
+  
+  const [localSelectedAnswer, setLocalSelectedAnswer] = useState<string | null>(null);
+
+  // Sync local state with context state
+  useEffect(() => {
+    setLocalSelectedAnswer(selectedAnswer);
+  }, [selectedAnswer]);
+
+  // Debug logs
+  useEffect(() => {
+    console.log("QuestionCard rendering with:", { 
+      selectedAnswer, 
+      localSelectedAnswer,
+      isAnswerChecked,
+      hasCurrentLesson: !!currentLesson,
+      currentQuestionIndex
+    });
+  }, [selectedAnswer, localSelectedAnswer, isAnswerChecked, currentLesson, currentQuestionIndex]);
 
   if (!currentLesson) return null;
 
@@ -40,6 +58,23 @@ const QuestionCard: React.FC = () => {
     return "border-gray-200 opacity-50";
   };
 
+  const handleOptionClick = (option: string) => {
+    console.log("Option clicked:", option);
+    selectAnswer(option);
+    setLocalSelectedAnswer(option);
+  };
+
+  const handleCheckAnswer = () => {
+    console.log("Check answer button clicked, selectedAnswer:", selectedAnswer, "localSelectedAnswer:", localSelectedAnswer);
+    if (!selectedAnswer && localSelectedAnswer) {
+      // If context doesn't have the answer but we do locally, update context first
+      selectAnswer(localSelectedAnswer);
+      setTimeout(() => checkAnswer(), 50); // Small delay to ensure state is updated
+    } else {
+      checkAnswer();
+    }
+  };
+
   return (
     <Card className="w-full max-w-xl mx-auto animate-bounce-in">
       <CardHeader>
@@ -56,7 +91,7 @@ const QuestionCard: React.FC = () => {
             <button
               key={idx}
               disabled={isAnswerChecked}
-              onClick={() => selectAnswer(option)}
+              onClick={() => handleOptionClick(option)}
               className={cn(
                 "w-full p-4 border-2 rounded-lg transition-all flex items-center justify-between",
                 getOptionClassName(option)
@@ -76,8 +111,8 @@ const QuestionCard: React.FC = () => {
       <CardFooter className="flex justify-center">
         {!isAnswerChecked ? (
           <Button 
-            onClick={checkAnswer} 
-            disabled={!selectedAnswer}
+            onClick={handleCheckAnswer} 
+            disabled={!selectedAnswer && !localSelectedAnswer}
             className="bg-germlearn-purple hover:bg-germlearn-purple/90 w-full max-w-xs"
           >
             Check Answer
